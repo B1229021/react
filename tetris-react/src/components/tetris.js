@@ -4,6 +4,7 @@ import './tetris.css';
 const ROWS = 20;
 const COLS = 10;
 const EMPTY = 0;
+const recentShapeKeys = []; // 取代 recentShapesRef.current
 
 const SHAPES = {
   I: [[1, 1, 1, 1]],
@@ -37,31 +38,73 @@ const rotate = (matrix) => {
   return matrix[0].map((_, i) => matrix.map(row => row[i])).reverse();
 };
 
-const getRandomShape = () => {
-  const keys = Object.keys(SHAPES);
-  const randomKey = keys[Math.floor(Math.random() * keys.length)];
-  return SHAPES[randomKey];
-};
-
 const createEmptyBoard = () =>
   Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
+
+const useAnimationFrame = (callback) => {
+  const requestRef = useRef();
+  const previousTimeRef = useRef();
+
+  useEffect(() => {
+    const animate = (time) => {
+      if (previousTimeRef.current != undefined) {
+        const deltaTime = time - previousTimeRef.current;
+        callback(deltaTime);
+      }
+      previousTimeRef.current = time;
+      requestRef.current = requestAnimationFrame(animate);
+    };
+    requestRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [callback]);
+};
+
+const getNextShapeKey = () => {
+  const keys = Object.keys(SHAPES);
+
+  // 統計最近的出現次數
+  const countMap = {};
+  for (let key of recentShapeKeys) {
+    countMap[key] = (countMap[key] || 0) + 1;
+  }
+
+  // 過濾掉已出現 2 次的形狀
+  const filtered = keys.filter(k => (countMap[k] || 0) < 2);
+
+  const pool = filtered.length > 0 ? filtered : keys;
+  const chosenKey = pool[Math.floor(Math.random() * pool.length)];
+
+  // 更新最近方塊紀錄
+  recentShapeKeys.push(chosenKey);
+  if (recentShapeKeys.length > 9) recentShapeKeys.shift();
+
+  return chosenKey;
+};
+
+const getRandomShape = () => SHAPES[getNextShapeKey()];
+
 
 const Tetris = () => {
   const [isGameOver, setIsGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [started, setStarted] = useState(false);
   const audioRef = useRef(null);
-
+  const [dropTime, setDropTime] = useState(500); // 預設 500ms 一次
+  const dropCounterRef = useRef(0);              // 累加計時器
+  const isSoftDropping = useRef(false);          // 控制是否快速下落
+  const LOCK_DELAY = 500; // 可調整為 300 ~ 500ms
+  const lockTimerRef = useRef(null);
+  const isLockDelayed = useRef(false);
   const [board, setBoard] = useState(createEmptyBoard());
-  const [currentPiece, setCurrentPiece] = useState({
+  const [currentPiece, setCurrentPiece] = useState(() => ({
     shape: getRandomShape(),
     x: 3,
     y: 0,
-  });
+  }));
+
   const [holdPiece, setHoldPiece] = useState(null);
   const [hasHeld, setHasHeld] = useState(false);
-  const [nextPiece, setNextPiece] = useState(getRandomShape());
-
+  const [nextPiece, setNextPiece] = useState(() => getRandomShape());
   const gameInterval = useRef(null);
 
   const restartGame = () => {
@@ -96,7 +139,6 @@ const Tetris = () => {
     }, 100); // 每 100ms 音量增加
   };
 
-
   const merge = (board, piece) => {
     const newBoard = board.map(row => [...row]);
     piece.shape.forEach((row, dy) => {
@@ -126,39 +168,112 @@ const Tetris = () => {
   const drop = () => {
     const { shape, x, y } = currentPiece;
     const newY = y + 1;
+
     if (isValidMove(shape, x, newY)) {
       setCurrentPiece({ shape, x, y: newY });
+      cancelLockDelay(); // 若能下落，取消 lock timer
     } else {
-      setHasHeld(false);
-      const newBoard = merge(board, currentPiece);
-      clearLines(newBoard);
-      const newShape = getRandomShape();
-      const newPiece = { shape: newShape, x: 3, y: 0 };
-      if (!isValidMove(newShape, 3, 0)) {
-        setIsGameOver(true);
-        clearInterval(gameInterval.current);
-        return;
+      if (!isLockDelayed.current) {
+        startLockDelay(); // 進入延遲鎖定狀態
       }
-      setCurrentPiece(newPiece);
-      setNextPiece(getRandomShape());
     }
   };
 
-  const clearLines = (newBoard) => {
-    const updatedBoard = newBoard.filter(row => row.some(cell => cell === EMPTY));
-    const linesCleared = ROWS - updatedBoard.length;
-    const pointsTable = [0, 100, 300, 500, 800];
-    if (linesCleared > 0) setScore(prev => prev + pointsTable[linesCleared]);
-    while (updatedBoard.length < ROWS) {
-      updatedBoard.unshift(Array(COLS).fill(EMPTY));
+  const startLockDelay = () => {
+    isLockDelayed.current = true;
+    lockTimerRef.current = setTimeout(() => {
+      lockPiece(); // 正式鎖定方塊
+      isLockDelayed.current = false;
+    }, LOCK_DELAY);
+  };
+
+  const cancelLockDelay = () => {
+    if (lockTimerRef.current) {
+      clearTimeout(lockTimerRef.current);
+      lockTimerRef.current = null;
+      isLockDelayed.current = false;
     }
-    setBoard(updatedBoard);
+  };
+
+  const lockPiece = () => {
+    setHasHeld(false);
+    const newBoard = merge(board, currentPiece);
+    clearLines(newBoard);
+    const newShape = nextPiece;
+    const newPiece = { shape: newShape, x: 3, y: 0 };
+
+    if (!isValidMove(newShape, 3, 0)) {
+      setIsGameOver(true);
+      return;
+    }
+
+    setBoard(newBoard);
+    setCurrentPiece(newPiece);
+    setNextPiece(getRandomShape());
+  };
+
+  useAnimationFrame((deltaTime) => {
+    if (isGameOver || !started) return;
+
+    dropCounterRef.current += deltaTime;
+    const interval = isSoftDropping.current ? 50 : dropTime;
+
+    if (dropCounterRef.current > interval) {
+      drop();
+      dropCounterRef.current = 0;
+    }
+  });
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+
+  const clearLines = (newBoard) => {
+    const linesToClear = [];
+
+    newBoard.forEach((row, i) => {
+      if (row.every(cell => cell !== EMPTY)) {
+        linesToClear.push(i);
+      }
+    });
+
+    if (linesToClear.length === 0) {
+      setBoard(newBoard);
+      return;
+    }
+
+    // 設定動畫標記：將要消除的行標記為 -1
+    const animatedBoard = newBoard.map((row, i) =>
+      linesToClear.includes(i) ? row.map(() => -1) : row
+    );
+
+    setBoard(animatedBoard);
+
+    // 分數表
+    const pointsTable = [0, 100, 300, 500, 800];
+    setScore(prev => prev + pointsTable[linesToClear.length]);
+
+    // 動畫結束後（例如 200ms）實際清除行
+    setTimeout(() => {
+      const updatedBoard = newBoard.filter((_, i) => !linesToClear.includes(i));
+      while (updatedBoard.length < ROWS) {
+        updatedBoard.unshift(Array(COLS).fill(EMPTY));
+      }
+      setBoard(updatedBoard);
+    }, 200); // 動畫持續時間（毫秒）
   };
 
   const move = dir => {
     const { shape, x, y } = currentPiece;
     const newX = x + dir;
     if (isValidMove(shape, newX, y)) {
+      cancelLockDelay(); // 移動時取消鎖定倒數
       setCurrentPiece({ shape, x: newX, y });
     }
   };
@@ -189,12 +304,12 @@ const Tetris = () => {
 
     for (let offset of offsets) {
       if (isValidMove(rotatedShape, x + offset, y)) {
+        cancelLockDelay(); // 移動時取消鎖定倒數
         setCurrentPiece({ shape: rotatedShape, x: x + offset, y });
         return; // 成功旋轉後就結束
       }
     }
   };
-
 
   const rotateCounterClockwise = (shape) => rotate(rotate(rotate(shape)));
 
@@ -205,12 +320,12 @@ const Tetris = () => {
 
     for (let offset of offsets) {
       if (isValidMove(rotatedShape, x + offset, y)) {
+        cancelLockDelay(); // 移動時取消鎖定倒數
         setCurrentPiece({ shape: rotatedShape, x: x + offset, y });
         return;
       }
     }
   };
-
 
   const handleHold = () => {
     if (hasHeld) return;
@@ -222,11 +337,19 @@ const Tetris = () => {
     setHasHeld(true);
   };
 
+  const handleKeyUp = e => {
+    if (e.key === 'ArrowDown') {
+      isSoftDropping.current = false;
+    }
+  };
+
   const handleKeyDown = e => {
     e.preventDefault();
     if (e.key === 'ArrowLeft') move(-1);
     if (e.key === 'ArrowRight') move(1);
-    if (e.key === 'ArrowDown') drop();
+    if (e.key === 'ArrowDown') {
+      isSoftDropping.current = true;
+    }
     if (e.ctrlKey) rotatePiece();
     if (e.key === 'Shift') handleHold();
     if (e.key === 'ArrowUp') rotatePieceCounterClockwise();
@@ -242,9 +365,12 @@ const Tetris = () => {
     };
   });
 
-  const renderCell = (val, i) => (
-    <div key={i} className={`cell type-${val}`} />
-  );
+  const renderCell = (val, i) => {
+    const className =
+      val === -1 ? 'cell clear-animation' : `cell type-${val}`;
+    return <div key={i} className={className} />;
+  };
+
 
   const renderBoard = () => {
     const displayBoard = merge(board, currentPiece);

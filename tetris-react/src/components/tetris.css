@@ -112,6 +112,17 @@ body {
   background-color: #388e3c;
 }
 
+.cell.clear-animation {
+  animation: clearBlink 0.2s linear infinite;
+  background-color: #fff;
+}
+
+@keyframes clearBlink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
 
 .cell.type-0 { background-color: #000; }
 .cell.type-1 { background-color: rgb(37, 218, 218); }
@@ -119,5 +130,5 @@ body {
 .cell.type-3 { background-color: rgb(149, 24, 149); }
 .cell.type-4 { background-color: rgb(209, 155, 54); }
 .cell.type-5 { background-color: rgb(44, 44, 171); }
-.cell.type-6 { background-color: rgb(19, 104, 19); }
-.cell.type-7 { background-color: rgb(189, 49, 49); }
+.cell.type-6 { background-color: rgb(189, 49, 49); }
+.cell.type-7 { background-color: rgb(19, 104, 19); }
