@@ -1,0 +1,48 @@
+#game-board {
+  display: grid;
+  grid-template-columns: repeat(10, 30px);
+  grid-template-rows: repeat(20, 30px);
+  gap: 1px;
+  background-color: #222;
+  border: 4px solid #444;
+  width: max-content;
+  margin: 20px auto;
+}
+
+/* 單一方塊格子 */
+.cell {
+  width: 30px;
+  height: 30px;
+  background-color: #111;
+  box-sizing: border-box;
+}
+
+/* 固定方塊樣式 */
+.cell.filled {
+  background-color: #555;
+}
+
+/* 方塊類型樣式 */
+.shape-I { background-color: #00f0f0; }
+.shape-J { background-color: #0000f0; }
+.shape-L { background-color: #f0a000; }
+.shape-O { background-color: #f0f000; }
+.shape-S { background-color: #00f000; }
+.shape-T { background-color: #a000f0; }
+.shape-Z { background-color: #f00000; }
+
+/* 畫面整體排版 */
+body {
+  background-color: #1a1a1a;
+  color: #eee;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+}
+
+/* 標題與說明文字 */
+h1 {
+  color: #fff;
+  margin-bottom: 10px;
+}
