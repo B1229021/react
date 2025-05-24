@@ -47,7 +47,7 @@ const useAnimationFrame = (callback) => {
 
   useEffect(() => {
     const animate = (time) => {
-      if (previousTimeRef.current != undefined) {
+      if (previousTimeRef.current !== undefined) {
         const deltaTime = time - previousTimeRef.current;
         callback(deltaTime);
       }
@@ -269,15 +269,27 @@ const Tetris = () => {
     }, 200); // 動畫持續時間（毫秒）
   };
 
+  // const move = dir => {
+  //   const { shape, x, y } = currentPiece;
+  //   const newX = x + dir;
+  //   if (isValidMove(shape, newX, y)) {
+  //     cancelLockDelay(); // 移動時取消鎖定倒數
+  //     setCurrentPiece({ shape, x: newX, y });
+  //   }
+  // };
   const move = dir => {
     const { shape, x, y } = currentPiece;
     const newX = x + dir;
+
     if (isValidMove(shape, newX, y)) {
-      cancelLockDelay(); // 移動時取消鎖定倒數
       setCurrentPiece({ shape, x: newX, y });
+
+      // 若已經觸底（下方無空間），則啟動 lock delay（只啟動一次）
+      if (!isValidMove(shape, newX, y + 1) && !isLockDelayed.current) {
+        startLockDelay();
+      }
     }
   };
-
   const hardDrop = () => {
     let { shape, x, y } = currentPiece;
     while (isValidMove(shape, x, y + 1)) y += 1;
@@ -327,13 +339,29 @@ const Tetris = () => {
     }
   };
 
+  // const handleHold = () => {
+  //   if (hasHeld) return;
+  //   const newCurrent = holdPiece
+  //     ? { shape: holdPiece, x: 3, y: 0 }
+  //     : { shape: getRandomShape(), x: 3, y: 0 };
+  //   setHoldPiece(currentPiece.shape);
+  //   setCurrentPiece(newCurrent);
+  //   setHasHeld(true);
+  // };
+
   const handleHold = () => {
     if (hasHeld) return;
-    const newCurrent = holdPiece
-      ? { shape: holdPiece, x: 3, y: 0 }
-      : { shape: getRandomShape(), x: 3, y: 0 };
-    setHoldPiece(currentPiece.shape);
-    setCurrentPiece(newCurrent);
+
+    const current = currentPiece.shape;
+    if (holdPiece) {
+      setCurrentPiece({ shape: holdPiece, x: 3, y: 0 });
+      setHoldPiece(current);
+    } else {
+      setCurrentPiece({ shape: nextPiece, x: 3, y: 0 });
+      setHoldPiece(current);
+      setNextPiece(getRandomShape());
+    }
+
     setHasHeld(true);
   };
 
