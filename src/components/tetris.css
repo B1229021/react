@@ -1,0 +1,150 @@
+body {
+  background-color: #111;
+  color: white;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.tetris-container {
+  display: flex;
+  position: absolute;
+  left: 50px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: row;   /* 確保是 row */
+  flex-wrap: nowrap;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.AI-tetris-container {
+  display: flex;
+  position: absolute;
+  right: 50px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: row;   /* 確保是 row */
+  flex-wrap: nowrap;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.tetris-wrapper {
+  flex-shrink: 0;
+  width: 400px;
+  height: 800px;
+  position: relative;
+}
+
+.tetris-board {
+  width: 400px;
+  height: 800px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #ccc;
+  background-color: black;
+}
+
+.row {
+  display: flex;
+  width: 100%;
+  height: 40px;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #222;
+}
+
+.next-box, .hold-box {
+  padding: 1rem;
+  text-align: center;
+  border: 2px solid #ccc;
+  background-color: #111;
+  color: white;
+  width: 100px;
+}
+
+.score-box {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.game-over {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 30px;
+  color: white;
+  font-size: 24px;
+  border: 2px solid white;
+  z-index: 10;
+}
+
+.game-over button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.game-start {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  z-index: 20;
+}
+
+.game-start button {
+  margin-top: 20px;
+  padding: 15px 30px;
+  font-size: 18px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.game-start button:hover {
+  background-color: #388e3c;
+}
+
+.cell.clear-animation {
+  animation: clearBlink 0.2s linear infinite;
+  background-color: #fff;
+}
+
+@keyframes clearBlink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+
+.cell.type-0 { background-color: #000; }
+.cell.type-1 { background-color: rgb(37, 218, 218); }
+.cell.type-2 { background-color: rgb(226, 226, 34); }
+.cell.type-3 { background-color: rgb(149, 24, 149); }
+.cell.type-4 { background-color: rgb(209, 155, 54); }
+.cell.type-5 { background-color: rgb(44, 44, 171); }
+.cell.type-6 { background-color: rgb(189, 49, 49); }
+.cell.type-7 { background-color: rgb(19, 104, 19); }
