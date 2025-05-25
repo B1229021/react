@@ -240,6 +240,11 @@ useEffect(() => {
     }
 
     // console.log({  current,  hold,  next,  updatedHold,  updatedCurrent,  nextTetromino, });
+    console.log('hold:', hold);
+    console.log('updatedHold:', updatedHold);
+    console.log('current:', current);
+    console.log('updatedCurrent:', updatedCurrent);
+
 
     // 在進行 hold 操作時，更新 hold 和 current
     setHold(updatedHold); // 更新 hold
@@ -255,12 +260,6 @@ useEffect(() => {
   if (!started || isGameOver || !aiTarget) return;
 
   if (aiPhase === 'moving') {
-    // 先左右移動
-    if (aiX !== aiTarget.x) {
-      const step = aiX < aiTarget.x ? 1 : -1;
-      const timer = setTimeout(() => setAiX(aiX + step), 100); // 控制移動速度
-      return () => clearTimeout(timer);
-    }
 
     // 再旋轉
     if (aiRotation !== aiTarget.rotation) {
@@ -270,6 +269,15 @@ useEffect(() => {
       const timer = setTimeout(() => setAiRotation(nextRotation), 150);
       return () => clearTimeout(timer);
     }
+
+    // 先左右移動
+    if (aiX !== aiTarget.x) {
+      const step = aiX < aiTarget.x ? 1 : -1;
+      const timer = setTimeout(() => setAiX(aiX + step), 100); // 控制移動速度
+      return () => clearTimeout(timer);
+    }
+
+
 
     // Hold 動畫（如果有 Hold 且還沒做）
     if (aiTarget.hold && !aiHoldDone) {
@@ -301,50 +309,51 @@ useEffect(() => {
 }, [aiX, aiRotation, aiHoldDone, aiDropping, aiPhase, aiTarget, board, started, isGameOver]);
 
 
-  return (
-    <div className="AI-tetris-container">
-        <div className="side-box">
-            <div className="hold-box">
-                <p>Hold:</p>
-                {getShape(hold).map((row, i) => (
-                    <div key={i} className="row">
-                    {row.map((val, j) => (
-                        <div key={j} className={`cell type-${val}`} />
-                    ))}
-                    </div>
-                ))}
-            </div>
-        </div>
-        
-        <div className="tetris-wrapper">
-            <div className="tetris-board">
-            {displayBoard.map((row, rowIndex) => (
-                <div className="row" key={rowIndex}>
-                    {row.map((cell, colIndex) => {
-                    const isClearingCell = clearingRows.includes(rowIndex);
-                    return (
-                        <div
-                        key={colIndex}
-                        className={`cell type-${cell} ${isClearingCell ? 'clear-animation' : ''}`}
-                        />
-                    );
-                    })}
-                </div>
-                ))}
-            </div>
-        </div>
-        <div className="side-box">
-            <div className="next-box">
-                <p>Next:</p>
-                {getShape(next).map((row, i) => (
-                    <div key={i} className="row">
-                    {row.map((val, j) => (
-                        <div key={j} className={`cell type-${val}`} />
-                    ))}
-                    </div>
-                ))}
-            </div>
-        </div>
+return (
+  <div className="AI-tetris-container">
+    <div className="side-box">
+      <div className={`hold-box ${aiHoldDone ? 'hold-animation' : ''}`}>
+        <p>Hold:</p>
+        {getShape(hold).map((row, i) => (
+          <div key={i} className="row">
+            {row.map((val, j) => (
+              <div key={j} className={`cell type-${val}`} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
-  );
+
+    <div className="tetris-wrapper">
+      <div className="tetris-board">
+        {displayBoard.map((row, rowIndex) => (
+          <div className="row" key={rowIndex}>
+            {row.map((cell, colIndex) => {
+              const isClearingCell = clearingRows.includes(rowIndex);
+              return (
+                <div
+                  key={colIndex}
+                  className={`cell type-${cell} ${isClearingCell ? 'clear-animation' : ''}`}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="side-box">
+      <div className="next-box">
+        <p>Next:</p>
+        {getShape(next).map((row, i) => (
+          <div key={i} className="row">
+            {row.map((val, j) => (
+              <div key={j} className={`cell type-${val}`} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 }
