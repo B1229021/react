@@ -21,14 +21,26 @@ function getTetrominoId(type) {
   return { I: 1, O: 2, T: 3, J: 4, L: 5, Z: 6, S: 7 }[type];
 }
 
+let bag = [];
+
+// 重新洗牌
+function refillBag() {
+  bag = [...TYPES].sort(() => Math.random() - 0.5);
+}
+
+function getNextShapeKey() {
+  if (bag.length === 0) refillBag();
+  return bag.pop(); // 從 bag 中拿一個
+}
+
 function randomTetromino() {
-  const type = TYPES[Math.floor(Math.random() * TYPES.length)];
-  return { type };
+  const key = getNextShapeKey();
+  return { type: SHAPES[key] ? key : 'I' };
 }
 
 
 
-export default function AIBoard() {
+export default function AIBoard({ started, isGameOver, resetKey }) {
   const [board, setBoard] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
   const [current, setCurrent] = useState(randomTetromino());
   const [next, setNext] = useState(randomTetromino());
@@ -42,6 +54,23 @@ export default function AIBoard() {
   const [aiRotation, setAiRotation] = useState(0);
   const [aiTarget, setAiTarget] = useState(null); // 存目標動作（AI的Move結果）
   const [aiPhase, setAiPhase] = useState('waiting'); // 'waiting' | 'dropping' | 'settling'
+
+  useEffect(() => {
+    // Reset 所有狀態
+    setBoard(Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
+    setCurrent(randomTetromino());
+    setNext(randomTetromino());
+    setHold(null);
+    setCanHold(true);
+    setCurrentRotation(0);
+    setClearingRows([]);
+    setIsClearing(false);
+    setAiX(0);
+    setAiY(0);
+    setAiRotation(0);
+    setAiTarget(null);
+    setAiPhase('waiting');
+  }, [resetKey]);
 
 
   function checkCollision(board, shape, x, y) {
@@ -89,88 +118,68 @@ export default function AIBoard() {
   }
 
 
-const displayBoard = board.map(row => [...row]);
+  const displayBoard = board.map(row => [...row]);
 
-if (aiTarget) { 
-  const shape = SHAPES[aiTarget.type][aiTarget.rotation]; // ✅ 正確
-  shape.forEach((row, r) => {
-    row.forEach((val, c) => {
-      if (val) {
-        const x = aiTarget.x + c;
-        const y = aiTarget.y + r;
-        if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
-          displayBoard[y][x] = getTetrominoId(aiTarget.type);
+  if (aiTarget) { 
+    const shape = SHAPES[aiTarget.type][aiTarget.rotation]; // ✅ 正確
+    shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+        if (val) {
+            const x = aiTarget.x + c;
+            const y = aiTarget.y + r;
+            if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+            displayBoard[y][x] = getTetrominoId(aiTarget.type);
+            }
         }
-      }
+        });
     });
-  });
-}
+  }
 
 
 
 function getShape(tetromino) {
   if (!tetromino) return [];
-  return SHAPES[tetromino.type][0];
-}
-
+    return SHAPES[tetromino.type][0];
+  }
 
 useEffect(() => {
-  if (isClearing || aiTarget) return;
+  if (!started || isGameOver || isClearing || aiTarget) return;
 
   const move = getBestMove(board, current, next, hold, SHAPES, canHold);
   setAiTarget(move);
   setAiX(move.x);
   setAiRotation(move.rotation);
   setAiY(0);
-}, [board, current, next, hold, canHold, isClearing]);
+}, [board, current, next, hold, canHold, isClearing, started, isGameOver]);
+
 
 
 
 useEffect(() => {
-  if (aiPhase !== 'waiting' || isClearing) return;
+  if (!started || isGameOver || aiPhase !== 'waiting' || isClearing) return;
 
   const move = getBestMove(board, current, next, hold, SHAPES, canHold);
   if (!move) return;
 
-  let newCurrent = current;
-  let newHold = hold;
-  let newNext = next;
-  let usedHold = false;
+  const piece = move.hold ? (hold ?? next) : current;
+  const rotation = move.rotation % SHAPES[piece.type].length;
 
-  if (move.hold) {
-    usedHold = true;
-    newHold = current;
-
-    if (hold) {
-      newCurrent = hold;
-      newNext = next;
-    } else {
-      newCurrent = next;
-      newNext = randomTetromino(); // fallback
-    }
-
-    setHold(newHold);
-    setCanHold(false);
-  }
-
-  const rotation = move.rotation % SHAPES[newCurrent.type].length;
-
-  setCurrent(newCurrent);
-  setNext(newNext);
   setAiTarget({
-    type: newCurrent.type,
+    type: piece.type,
     x: move.x,
     y: 0,
     rotation,
-    hold: usedHold,
+    hold: move.hold,
   });
 
+  
+
   setAiPhase('dropping');
-}, [aiPhase, board, current, next, hold, canHold, isClearing]);
+}, [aiPhase, started, aiPhase, board, current, next, hold, canHold, isClearing]);
 
 
 useEffect(() => {
-  if (aiPhase !== 'dropping' || !aiTarget) return;
+  if (!started || isGameOver || aiPhase !== 'dropping' || !aiTarget) return;
 
   const shape = SHAPES[aiTarget.type][aiTarget.rotation]; // ✅
 
@@ -189,10 +198,10 @@ useEffect(() => {
   setBoard(newBoard);
   setAiPhase('settling');
 
-}, [aiTarget, aiPhase, board]);
+}, [aiPhase, started, aiTarget, aiPhase, board]);
 
 useEffect(() => {
-  if (aiPhase !== 'settling') return;
+  if (!started || isGameOver || aiPhase !== 'settling') return;
 
   const fullRows = getFullRows(board);
   if (fullRows.length > 0) {
@@ -208,34 +217,20 @@ useEffect(() => {
     }, 400);
   }
 
+  // ✅ 修正 hold 與 current 的更新邏輯
+  const updatedHold = aiTarget.hold ? current : hold;
+  const updatedCurrent = aiTarget.hold ? (hold ?? next) : next;
   const nextTetromino = randomTetromino();
 
-  let newHold = hold;
-  let newCurrent;
-
-  if (aiTarget.hold) {
-    newHold = current;
-
-    if (hold) {
-      newCurrent = hold;
-      setNext(nextTetromino); // 只要從 hold 拿出來用，就要補一個 next
-    } else {
-      newCurrent = next;
-      setNext(nextTetromino); // fallback 也要補
-    }
-
-  } else {
-    newCurrent = next;
-    setNext(nextTetromino);
-  }
-
-  setHold(newHold);
-  setCurrent(newCurrent);
-  setCanHold(!aiTarget.hold);
+  setHold(updatedHold);
+  setCurrent(updatedCurrent);
+  setNext(nextTetromino);
+  setCanHold(!aiTarget.hold); // 下次才能再使用 hold
   setCurrentRotation(0);
   setAiTarget(null);
   setAiPhase('waiting');
-}, [aiPhase]);
+}, [aiPhase, started, aiPhase]);
+
 
   return (
     <div className="AI-tetris-container">
@@ -267,7 +262,6 @@ useEffect(() => {
                     })}
                 </div>
                 ))}
-
             </div>
         </div>
         <div className="side-box">

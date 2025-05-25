@@ -84,10 +84,8 @@ const getNextShapeKey = () => {
 const getRandomShape = () => SHAPES[getNextShapeKey()];
 
 
-const Tetris = () => {
-  const [isGameOver, setIsGameOver] = useState(false);
+const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
   const [score, setScore] = useState(0);
-  const [started, setStarted] = useState(false);
   const audioRef = useRef(null);
   const [dropTime, setDropTime] = useState(500); // 預設 500ms 一次
   const dropCounterRef = useRef(0);              // 累加計時器
@@ -107,7 +105,7 @@ const Tetris = () => {
   const [nextPiece, setNextPiece] = useState(() => getRandomShape());
   const gameInterval = useRef(null);
 
-  const restartGame = () => {
+  const handlerestart = () => {
     setScore(0);
     setNextPiece(getRandomShape());
     setBoard(createEmptyBoard());
@@ -115,6 +113,8 @@ const Tetris = () => {
     setHoldPiece(null);
     setHasHeld(false);
     setIsGameOver(false);
+    fadeInAudio();
+    restartGame();
     if (gameInterval.current) clearInterval(gameInterval.current);
     gameInterval.current = setInterval(drop, 500);
     fadeInAudio(); // 加這行淡入音樂
@@ -209,6 +209,8 @@ const Tetris = () => {
 
     if (!isValidMove(newShape, 3, 0)) {
       setIsGameOver(true);
+      clearInterval(gameInterval.current); // 避免死循環
+      gameInterval.current = setInterval(drop, 500);
       return;
     }
 
@@ -304,6 +306,7 @@ const Tetris = () => {
     if (!isValidMove(newPiece.shape, newPiece.x, newPiece.y)) {
       setIsGameOver(true);
       clearInterval(gameInterval.current);
+      gameInterval.current = setInterval(drop, 500);
       return;
     }
     setCurrentPiece(newPiece);
@@ -417,22 +420,20 @@ const Tetris = () => {
     }
   }, [isGameOver]);
 
-  return !started ? (
-      <div className="game-start">
-        <h2>準備開始遊戲！</h2>
-        <button
-          onClick={() => {
-            setStarted(true);
-            restartGame();
-          }}
-        >
-          開始遊戲
-        </button>
-      </div>
-    ) : (
+  return (
       <>
       {/* 背景音樂 */}
       <audio ref={audioRef} src="/bgm.mp3" loop />
+
+      {isGameOver && (
+        <div className="game-over">
+          <h2>Game Over</h2>
+          <button onClick={() => {
+
+              handlerestart();
+            }}>Restart</button>
+        </div>
+      )}
 
       <div className="tetris-container">
         <div className="side-box">
@@ -452,15 +453,6 @@ const Tetris = () => {
 
         <div className="tetris-wrapper">
           <div className="tetris-board">{renderBoard()}</div>
-          {isGameOver && (
-            <div className="game-over">
-              <h2>Game Over</h2>
-              <button onClick={() => {
-                  fadeInAudio();
-                  restartGame();
-                }}>Restart</button>
-            </div>
-          )}
         </div>
 
         <div className="side-box">

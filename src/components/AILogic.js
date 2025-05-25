@@ -140,9 +140,7 @@ function evaluateBoard(board) {
 }
 
 function getTetrominoId(type) {
-  return {
-    I: 1, O: 2, T: 3, J: 4, L: 5, Z: 6, S: 7
-  }[type];
+  return { I: 1, O: 2, T: 3, J: 4, L: 5, Z: 6, S: 7 }[type];
 }
 
 function getSafeShape(rotations, rotationIndex) {
