@@ -99,7 +99,6 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     x: 3,
     y: 0,
   }));
-
   const [holdPiece, setHoldPiece] = useState(null);
   const [hasHeld, setHasHeld] = useState(false);
   const [nextPiece, setNextPiece] = useState(() => getRandomShape());
@@ -349,9 +348,11 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     if (hasHeld) return;
     const newCurrent = holdPiece
       ? { shape: holdPiece, x: 3, y: 0 }
-      : { shape: getRandomShape(), x: 3, y: 0 };
+      : { shape: nextPiece, x: 3, y: 0 };
     setHoldPiece(currentPiece.shape);
     setCurrentPiece(newCurrent);
+    if (!holdPiece)
+      setNextPiece(getRandomShape());
     setHasHeld(true);
   };
 

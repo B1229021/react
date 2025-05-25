@@ -40,7 +40,7 @@ function randomTetromino() {
 
 
 
-export default function AIBoard({ started, isGameOver, resetKey }) {
+export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
   const [board, setBoard] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
   const [current, setCurrent] = useState(randomTetromino());
   const [next, setNext] = useState(randomTetromino());
@@ -137,99 +137,104 @@ export default function AIBoard({ started, isGameOver, resetKey }) {
 
 
 
-function getShape(tetromino) {
-  if (!tetromino) return [];
-    return SHAPES[tetromino.type][0];
+  function getShape(tetromino) {
+    if (!tetromino) return [];
+        return SHAPES[tetromino.type][0];
   }
 
-useEffect(() => {
-  if (!started || isGameOver || isClearing || aiTarget) return;
+  useEffect(() => {
+    if (!started || isGameOver || isClearing || aiTarget) return;
 
-  const move = getBestMove(board, current, next, hold, SHAPES, canHold);
-  setAiTarget(move);
-  setAiX(move.x);
-  setAiRotation(move.rotation);
-  setAiY(0);
-}, [board, current, next, hold, canHold, isClearing, started, isGameOver]);
-
-
-
-
-useEffect(() => {
-  if (!started || isGameOver || aiPhase !== 'waiting' || isClearing) return;
-
-  const move = getBestMove(board, current, next, hold, SHAPES, canHold);
-  if (!move) return;
-
-  const piece = move.hold ? (hold ?? next) : current;
-  const rotation = move.rotation % SHAPES[piece.type].length;
-
-  setAiTarget({
-    type: piece.type,
-    x: move.x,
-    y: 0,
-    rotation,
-    hold: move.hold,
-  });
-
-  
-
-  setAiPhase('dropping');
-}, [aiPhase, started, aiPhase, board, current, next, hold, canHold, isClearing]);
-
-
-useEffect(() => {
-  if (!started || isGameOver || aiPhase !== 'dropping' || !aiTarget) return;
-
-  const shape = SHAPES[aiTarget.type][aiTarget.rotation]; // ✅
+    const move = getBestMove(board, current, next, hold, SHAPES, canHold);
+    setAiTarget(move);
+    setAiX(move.x);
+    setAiRotation(move.rotation);
+    setAiY(0);
+  }, [board, current, next, hold, canHold, isClearing, started, isGameOver]);
 
 
 
-  if (!checkCollision(board, shape, aiTarget.x, aiTarget.y + 1)) {
-    const dropTimeout = setTimeout(() => {
-      setAiTarget(prev => ({ ...prev, y: prev.y + 1 }));
-    }, 50);
-    return () => clearTimeout(dropTimeout);
-  }
 
-  // 落地
-  const newBoard = merge(board, shape, aiTarget.x, aiTarget.y, getTetrominoId(aiTarget.type)); // ✅
+  useEffect(() => {
+    if (!started || isGameOver || aiPhase !== 'waiting' || isClearing) return;
 
-  setBoard(newBoard);
-  setAiPhase('settling');
+    const move = getBestMove(board, current, next, hold, SHAPES, canHold);
+    if (!move) return;
 
-}, [aiPhase, started, aiTarget, aiPhase, board]);
+    const piece = move.hold ? (hold ?? next) : current;
+    const rotation = move.rotation % SHAPES[piece.type].length;
 
-useEffect(() => {
-  if (!started || isGameOver || aiPhase !== 'settling') return;
+    setAiTarget({
+        type: piece.type,
+        x: move.x,
+        y: 0,
+        rotation,
+        hold: move.hold,
+    });
 
-  const fullRows = getFullRows(board);
-  if (fullRows.length > 0) {
-    setClearingRows(fullRows);
-    setIsClearing(true);
+    setAiPhase('dropping');
+  }, [aiPhase, started, aiPhase, board, current, next, hold, canHold, isClearing]);
 
-    setTimeout(() => {
-      const filtered = board.filter((_, i) => !fullRows.includes(i));
-      while (filtered.length < ROWS) filtered.unshift(new Array(COLS).fill(0));
-      setBoard(filtered);
-      setClearingRows([]);
-      setIsClearing(false);
-    }, 400);
-  }
 
-  // ✅ 修正 hold 與 current 的更新邏輯
-  const updatedHold = aiTarget.hold ? current : hold;
-  const updatedCurrent = aiTarget.hold ? (hold ?? next) : next;
-  const nextTetromino = randomTetromino();
+  useEffect(() => {
+    if (!started || isGameOver || aiPhase !== 'dropping' || !aiTarget) return;
 
-  setHold(updatedHold);
-  setCurrent(updatedCurrent);
-  setNext(nextTetromino);
-  setCanHold(!aiTarget.hold); // 下次才能再使用 hold
-  setCurrentRotation(0);
-  setAiTarget(null);
-  setAiPhase('waiting');
-}, [aiPhase, started, aiPhase]);
+    const shape = SHAPES[aiTarget.type][aiTarget.rotation];
+
+    if (!checkCollision(board, shape, aiTarget.x, aiTarget.y + 1)) {
+        const dropTimeout = setTimeout(() => {
+        setAiTarget(prev => ({ ...prev, y: prev.y + 1 }));
+        }, 150);     //調整ai下落速度，預設為150
+        return () => clearTimeout(dropTimeout);
+    }
+
+    // 落地
+    const newBoard = merge(board, shape, aiTarget.x, aiTarget.y, getTetrominoId(aiTarget.type));
+
+    setBoard(newBoard);
+    setAiPhase('settling');
+  }, [aiPhase, started, aiTarget, aiPhase, board]);
+
+  useEffect(() => {
+    if (!started || isGameOver || aiPhase !== 'settling') return;
+
+    const fullRows = getFullRows(board);
+    if (fullRows.length > 0) {
+        setClearingRows(fullRows);
+        setIsClearing(true);
+
+        setTimeout(() => {
+        const filtered = board.filter((_, i) => !fullRows.includes(i));
+        while (filtered.length < ROWS) filtered.unshift(new Array(COLS).fill(0));
+        setBoard(filtered);
+        setClearingRows([]);
+        setIsClearing(false);
+        }, 400);
+    }
+
+    // ✅ 修正 hold 與 current 的更新邏輯
+    const updatedHold = aiTarget.hold ? current : hold;
+    const updatedCurrent = aiTarget.hold ? (hold ?? next) : next;
+    const nextTetromino = randomTetromino();
+
+    // ❗️這裡檢查新方塊是否能放下（如果不能，就是 Game Over）
+    const newShape = SHAPES[updatedCurrent.type][0];
+    const collision = checkCollision(board, newShape, 3, 0); // 3 是大約中央位置
+
+    if (collision) {
+        onGameOver?.();  // ✅ 通知 App.js
+        return;          // ✅ 不再繼續遊戲
+    }
+
+    setHold(updatedHold);
+    setCurrent(updatedCurrent);
+    setNext(nextTetromino);
+    setCanHold(!aiTarget.hold);
+    setCurrentRotation(0);
+    setAiTarget(null);
+    setAiPhase('waiting');
+  }, [aiPhase, started]);
+
 
 
   return (

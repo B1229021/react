@@ -22,6 +22,8 @@ function App() {
     setAiResetKey(prev => prev + 1); // 通知 AI 要重啟
   };
 
+  
+
   useEffect(() => {
     console.log(isGameOver); 
   }, [isGameOver]);
@@ -46,6 +48,7 @@ function App() {
             started={started}
             isGameOver={isGameOver}
             resetKey={aiResetKey}
+            onGameOver={endGame}
           />
         </>
       )}
