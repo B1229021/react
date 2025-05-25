@@ -46,14 +46,14 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
   const [next, setNext] = useState(randomTetromino());
   const [hold, setHold] = useState(null);
   const [canHold, setCanHold] = useState(true);
-  const [currentRotation, setCurrentRotation] = useState(0);
   const [clearingRows, setClearingRows] = useState([]);
   const [isClearing, setIsClearing] = useState(false);
   const [aiX, setAiX] = useState(0);
-  const [aiY, setAiY] = useState(0);
   const [aiRotation, setAiRotation] = useState(0);
   const [aiTarget, setAiTarget] = useState(null); // 存目標動作（AI的Move結果）
   const [aiPhase, setAiPhase] = useState('waiting'); // 'waiting' | 'dropping' | 'settling'
+  const [aiHoldDone, setAiHoldDone] = useState(false);
+  const [aiDropping, setAiDropping] = useState(false);
 
   useEffect(() => {
     // Reset 所有狀態
@@ -62,15 +62,17 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
     setNext(randomTetromino());
     setHold(null);
     setCanHold(true);
-    setCurrentRotation(0);
     setClearingRows([]);
     setIsClearing(false);
     setAiX(0);
-    setAiY(0);
     setAiRotation(0);
     setAiTarget(null);
     setAiPhase('waiting');
   }, [resetKey]);
+
+  function getInitialX(shape) {
+    return Math.floor((COLS - shape[0].length) / 2);
+  }
 
 
   function checkCollision(board, shape, x, y) {
@@ -120,20 +122,21 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
 
   const displayBoard = board.map(row => [...row]);
 
-  if (aiTarget) { 
-    const shape = SHAPES[aiTarget.type][aiTarget.rotation]; // ✅ 正確
-    shape.forEach((row, r) => {
-        row.forEach((val, c) => {
-        if (val) {
-            const x = aiTarget.x + c;
-            const y = aiTarget.y + r;
-            if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
-            displayBoard[y][x] = getTetrominoId(aiTarget.type);
-            }
+if (aiTarget) {
+  const shape = SHAPES[aiTarget.type][aiRotation];
+  shape.forEach((row, r) => {
+    row.forEach((val, c) => {
+      if (val) {
+        const x = aiX + c;
+        const y = aiTarget.y + r;
+        if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+          displayBoard[y][x] = getTetrominoId(aiTarget.type);
         }
-        });
+      }
     });
-  }
+  });
+}
+
 
 
 
@@ -149,31 +152,40 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
     setAiTarget(move);
     setAiX(move.x);
     setAiRotation(move.rotation);
-    setAiY(0);
+    // setAiY(0);
   }, [board, current, next, hold, canHold, isClearing, started, isGameOver]);
 
 
 
 
-  useEffect(() => {
-    if (!started || isGameOver || aiPhase !== 'waiting' || isClearing) return;
+useEffect(() => {
+  if (!started || isGameOver || aiPhase !== 'waiting' || isClearing) return;
 
-    const move = getBestMove(board, current, next, hold, SHAPES, canHold);
-    if (!move) return;
+  const move = getBestMove(board, current, next, hold, SHAPES, canHold);
+  if (!move) return;
 
-    const piece = move.hold ? (hold ?? next) : current;
-    const rotation = move.rotation % SHAPES[piece.type].length;
+  const piece = move.hold ? (hold ?? next) : current;
+  const rotation = move.rotation % SHAPES[piece.type].length;
+
+    const shape = SHAPES[move.hold ? (hold ?? next).type : current.type][move.rotation];
+    const initX = getInitialX(shape);
 
     setAiTarget({
-        type: piece.type,
-        x: move.x,
-        y: 0,
-        rotation,
-        hold: move.hold,
+    type: piece.type,
+    x: move.x,
+    y: 0,
+    rotation,
+    hold: move.hold,
     });
 
-    setAiPhase('dropping');
-  }, [aiPhase, started, aiPhase, board, current, next, hold, canHold, isClearing]);
+    setAiX(initX); // 使用初始 X
+
+  setAiRotation(0);
+  setAiHoldDone(false);
+  setAiDropping(false);
+  setAiPhase('moving');  // 改為 moving 階段
+}, [aiPhase, started, board, current, next, hold, canHold, isClearing]);
+
 
 
   useEffect(() => {
@@ -209,32 +221,84 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
         setBoard(filtered);
         setClearingRows([]);
         setIsClearing(false);
-        }, 400);
+        }, 200);
     }
 
-    // ✅ 修正 hold 與 current 的更新邏輯
-    const updatedHold = aiTarget.hold ? current : hold;
-    const updatedCurrent = aiTarget.hold ? (hold ?? next) : next;
+    // 更新 hold 和 current 的邏輯
+    let updatedHold = aiTarget.hold ? current : hold;
+    let updatedCurrent = aiTarget.hold ? (hold ?? next) : next;
+
     const nextTetromino = randomTetromino();
 
-    // ❗️這裡檢查新方塊是否能放下（如果不能，就是 Game Over）
+    // 檢查新方塊是否能放下（如果不能，就是 Game Over）
     const newShape = SHAPES[updatedCurrent.type][0];
     const collision = checkCollision(board, newShape, 3, 0); // 3 是大約中央位置
 
     if (collision) {
-        onGameOver?.();  // ✅ 通知 App.js
-        return;          // ✅ 不再繼續遊戲
+        onGameOver?.();  // 通知 Game Over
+        return;          // 不再繼續遊戲
     }
 
-    setHold(updatedHold);
-    setCurrent(updatedCurrent);
-    setNext(nextTetromino);
-    setCanHold(!aiTarget.hold);
-    setCurrentRotation(0);
-    setAiTarget(null);
-    setAiPhase('waiting');
-  }, [aiPhase, started]);
+    // console.log({  current,  hold,  next,  updatedHold,  updatedCurrent,  nextTetromino, });
 
+    // 在進行 hold 操作時，更新 hold 和 current
+    setHold(updatedHold); // 更新 hold
+    setCurrent(updatedCurrent); // 更新 current
+    setNext(nextTetromino); // 更新 next
+    setCanHold(!aiTarget.hold); // 只有在沒有進行 hold 操作時才能 hold
+    setAiTarget(null);
+    setAiPhase('waiting');  // 改回等待狀態
+}, [aiPhase, started, board, current, next, hold, canHold, isClearing, aiTarget, onGameOver]);
+
+
+useEffect(() => {
+  if (!started || isGameOver || !aiTarget) return;
+
+  if (aiPhase === 'moving') {
+    // 先左右移動
+    if (aiX !== aiTarget.x) {
+      const step = aiX < aiTarget.x ? 1 : -1;
+      const timer = setTimeout(() => setAiX(aiX + step), 100); // 控制移動速度
+      return () => clearTimeout(timer);
+    }
+
+    // 再旋轉
+    if (aiRotation !== aiTarget.rotation) {
+      const rotationCount = SHAPES[aiTarget.type].length;
+      // 簡單往目標旋轉角度走
+      const nextRotation = (aiRotation + 1) % rotationCount;
+      const timer = setTimeout(() => setAiRotation(nextRotation), 150);
+      return () => clearTimeout(timer);
+    }
+
+    // Hold 動畫（如果有 Hold 且還沒做）
+    if (aiTarget.hold && !aiHoldDone) {
+      // 做 Hold 動畫，比如停頓一下
+      const timer = setTimeout(() => setAiHoldDone(true), 300);
+      return () => clearTimeout(timer);
+    }
+
+    // 以上動作完成後進入下落階段
+    setAiDropping(true);
+    setAiPhase('dropping');
+  }
+
+  if (aiPhase === 'dropping' && aiDropping) {
+    const shape = SHAPES[aiTarget.type][aiRotation];
+    if (!checkCollision(board, shape, aiX, aiTarget.y + 1)) {
+      const timer = setTimeout(() => {
+        setAiTarget(prev => ({ ...prev, y: prev.y + 1 }));
+      }, 50); // 下落速度
+      return () => clearTimeout(timer);
+    }
+
+    // 落地
+    const newBoard = merge(board, shape, aiX, aiTarget.y, getTetrominoId(aiTarget.type));
+    setBoard(newBoard);
+    setAiPhase('settling');
+    setAiDropping(false);
+  }
+}, [aiX, aiRotation, aiHoldDone, aiDropping, aiPhase, aiTarget, board, started, isGameOver]);
 
 
   return (

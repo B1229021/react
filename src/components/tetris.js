@@ -47,7 +47,7 @@ const useAnimationFrame = (callback) => {
 
   useEffect(() => {
     const animate = (time) => {
-      if (previousTimeRef.current != undefined) {
+      if (previousTimeRef.current !== undefined) {
         const deltaTime = time - previousTimeRef.current;
         callback(deltaTime);
       }
@@ -102,7 +102,6 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
   const [holdPiece, setHoldPiece] = useState(null);
   const [hasHeld, setHasHeld] = useState(false);
   const [nextPiece, setNextPiece] = useState(() => getRandomShape());
-  const gameInterval = useRef(null);
 
   const handlerestart = () => {
     setScore(0);
@@ -114,8 +113,6 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     setIsGameOver(false);
     fadeInAudio();
     restartGame();
-    if (gameInterval.current) clearInterval(gameInterval.current);
-    gameInterval.current = setInterval(drop, 500);
     fadeInAudio(); // 加這行淡入音樂
   };
 
@@ -208,9 +205,7 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
 
     if (!isValidMove(newShape, 3, 0)) {
       setIsGameOver(true);
-      clearInterval(gameInterval.current); // 避免死循環
-      gameInterval.current = setInterval(drop, 500);
-      return;
+       return;
     }
 
     setBoard(newBoard);
@@ -229,15 +224,6 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
       dropCounterRef.current = 0;
     }
   });
-
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   useEffect(() => {
     if (score > highScore) {
@@ -304,8 +290,6 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     const newPiece = { shape: nextPiece, x: 3, y: 0 };
     if (!isValidMove(newPiece.shape, newPiece.x, newPiece.y)) {
       setIsGameOver(true);
-      clearInterval(gameInterval.current);
-      gameInterval.current = setInterval(drop, 500);
       return;
     }
     setCurrentPiece(newPiece);
@@ -377,12 +361,13 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
-    gameInterval.current = setInterval(drop, 500);
+    document.addEventListener('keyup', handleKeyUp);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      clearInterval(gameInterval.current);
+      document.removeEventListener('keyup', handleKeyUp);
     };
   });
+
 
   const renderCell = (val, i) => {
     const className =

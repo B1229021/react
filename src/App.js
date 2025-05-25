@@ -23,11 +23,6 @@ function App() {
   };
 
   
-
-  useEffect(() => {
-    console.log(isGameOver); 
-  }, [isGameOver]);
-
   return (
     <div className="App">
       {!started ? (
