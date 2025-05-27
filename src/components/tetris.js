@@ -102,6 +102,7 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame, onLinesCleare
   const [holdPiece, setHoldPiece] = useState(null);
   const [hasHeld, setHasHeld] = useState(false);
   const [nextPiece, setNextPiece] = useState(() => getRandomShape());
+  const [lastGarbageCount, setLastGarbageCount] = useState(0);
 
   const handlerestart = () => {
     setScore(0);
@@ -233,10 +234,11 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame, onLinesCleare
   }, [score, highScore]);
 
   useEffect(() => {
-    if (garbageRows > 0) {
+    if (garbageRows > lastGarbageCount) {
       setBoard(prev => {
-        const newBoard = [...prev.slice(garbageRows)]; // 移除最上面幾行
-        for (let i = 0; i < garbageRows; i++) {
+        const diff = garbageRows - lastGarbageCount;
+        const newBoard = [...prev.slice(diff)]; // 移除最上面幾行
+        for (let i = 0; i < diff; i++) {
           const row = Array(COLS).fill(8); // 8 表示垃圾行
           const hole = Math.floor(Math.random() * COLS);
           row[hole] = 0; // 留一個洞
@@ -244,8 +246,9 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame, onLinesCleare
         }
         return newBoard;
       });
+      setLastGarbageCount(garbageRows);
     }
-  }, [garbageRows]);
+  }, [garbageRows, lastGarbageCount]);
 
 
   const clearLines = (newBoard) => {
