@@ -84,7 +84,7 @@ const getNextShapeKey = () => {
 const getRandomShape = () => SHAPES[getNextShapeKey()];
 
 
-const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
+const Tetris = ({ started, isGameOver, setIsGameOver, restartGame, onLinesCleared, garbageRows }) => {
   const [score, setScore] = useState(0);
   const audioRef = useRef(null);
   const [dropTime, setDropTime] = useState(500); // 預設 500ms 一次
@@ -232,6 +232,20 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     }
   }, [score, highScore]);
 
+  useEffect(() => {
+    if (garbageRows > 0) {
+      setBoard(prev => {
+        const newBoard = [...prev.slice(garbageRows)]; // 移除最上面幾行
+        for (let i = 0; i < garbageRows; i++) {
+          const row = Array(COLS).fill(8); // 8 表示垃圾行
+          const hole = Math.floor(Math.random() * COLS);
+          row[hole] = 0; // 留一個洞
+          newBoard.push(row);
+        }
+        return newBoard;
+      });
+    }
+  }, [garbageRows]);
 
 
   const clearLines = (newBoard) => {
@@ -259,6 +273,11 @@ const Tetris = ({ started, isGameOver, setIsGameOver, restartGame }) => {
     const pointsTable = [0, 100, 300, 500, 800];
     const gained = pointsTable[linesToClear.length];
     setScore(prev => prev + gained);
+
+    // 回報給父層
+    if (onLinesCleared) {
+      onLinesCleared(linesToClear.length);
+    }
 
     // 延遲清除
     setTimeout(() => {

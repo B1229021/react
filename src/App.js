@@ -6,6 +6,22 @@ function App() {
   const [started, setStarted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [aiResetKey, setAiResetKey] = useState(0); // 加這行
+  const [playerGarbage, setPlayerGarbage] = useState(0);
+  const [aiGarbage, setAiGarbage] = useState(0);
+
+  // 玩家清除行，AI 要吃垃圾
+  const handlePlayerLinesCleared = (count) => {
+    if (count >= 2) {
+      setAiGarbage(prev => prev + (count - 1));
+    }
+  };
+
+  // AI 清除行，玩家要吃垃圾
+  const handleAiLinesCleared = (count) => {
+    if (count >= 2) {
+      setPlayerGarbage(prev => prev + (count - 1));
+    }
+  };
 
   const startGame = () => {
     setStarted(true);
@@ -17,6 +33,8 @@ function App() {
   };
 
   const restartGame = () => {
+    setAiGarbage(0);
+    setPlayerGarbage(0);
     setIsGameOver(false);
     setStarted(true);
     setAiResetKey(prev => prev + 1); // 通知 AI 要重啟
@@ -37,6 +55,8 @@ function App() {
             isGameOver={isGameOver}
             setIsGameOver={endGame}
             restartGame={restartGame}
+            onLinesCleared={handlePlayerLinesCleared}
+            garbageRows={playerGarbage}
           />
 
           <AI
@@ -44,6 +64,8 @@ function App() {
             isGameOver={isGameOver}
             resetKey={aiResetKey}
             onGameOver={endGame}
+            onLinesCleared={handleAiLinesCleared}
+            garbageRows={aiGarbage}
           />
         </>
       )}

@@ -46,7 +46,7 @@ function randomTetromino() {
 
 
 
-export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
+export default function AIBoard({ started, isGameOver, resetKey, onGameOver, onLinesCleared, garbageRows }) {
   const [board, setBoard] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(0)));
   const [current, setCurrent] = useState(randomTetromino());
   const [next, setNext] = useState(randomTetromino());
@@ -61,6 +61,7 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
   const [aiHoldDone, setAiHoldDone] = useState(false);
   const [aiDropping, setAiDropping] = useState(false);
   const [delayTick, setDelayTick] = useState(0); // 控制延遲下落
+  const [lastGarbageCount, setLastGarbageCount] = useState(0);
 
   useEffect(() => {
     // Reset 所有狀態
@@ -73,9 +74,35 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
     setIsClearing(false);
     setAiX(0);
     setAiRotation(0);
+    setLastGarbageCount(0);
     setAiTarget(null);
     setAiPhase('waiting');
   }, [resetKey]);
+
+  useEffect(() => {
+    if (garbageRows > lastGarbageCount) {
+      const diff = garbageRows - lastGarbageCount;
+      setBoard(prevBoard => addGarbageLines(prevBoard, diff));
+      setLastGarbageCount(garbageRows);
+    }
+  }, [garbageRows, lastGarbageCount]);
+
+  function addGarbageLines(board, count) {
+    const width = board[0].length;
+    const height = board.length;
+
+    const garbageRow = () => {
+      const hole = Math.floor(Math.random() * width);
+      return Array.from({ length: width }, (_, i) => (i === hole ? 0 : 8)); // 8 表示垃圾方塊
+    };
+
+    const newLines = Array.from({ length: count }, garbageRow);
+
+    // 移除上方 count 行，並加上新行
+    const trimmedBoard = board.slice(count);
+    return [...trimmedBoard, ...newLines];
+  }
+
 
   function getInitialX(shape) {
     return Math.floor((COLS - shape[0].length) / 2);
@@ -188,16 +215,20 @@ export default function AIBoard({ started, isGameOver, resetKey, onGameOver }) {
 
     const fullRows = getFullRows(board);
     if (fullRows.length > 0) {
-        setClearingRows(fullRows);
-        setIsClearing(true);
+      setClearingRows(fullRows);
+      setIsClearing(true);
 
-        setTimeout(() => {
-        const filtered = board.filter((_, i) => !fullRows.includes(i));
-        while (filtered.length < ROWS) filtered.unshift(new Array(COLS).fill(0));
-        setBoard(filtered);
-        setClearingRows([]);
-        setIsClearing(false);
-        }, 200);
+      if (fullRows.length >= 2) {
+        onLinesCleared?.(fullRows.length); // ✅ 通知對手新增垃圾行
+      }
+
+      setTimeout(() => {
+      const filtered = board.filter((_, i) => !fullRows.includes(i));
+      while (filtered.length < ROWS) filtered.unshift(new Array(COLS).fill(0));
+      setBoard(filtered);
+      setClearingRows([]);
+      setIsClearing(false);
+      }, 200);
     }
 
     // 更新 current 的邏輯

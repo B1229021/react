@@ -112,6 +112,9 @@
   }
 } */
 
+
+
+
 @keyframes clearBlink {
   0% { opacity: 1; }
   50% { opacity: 0.3; }
@@ -127,3 +130,4 @@
 .cell.type-5 { background-color: rgb(44, 44, 171); }
 .cell.type-6 { background-color: rgb(189, 49, 49); }
 .cell.type-7 { background-color: rgb(19, 104, 19); }
+.cell.type-8 { background-color: #888;}
