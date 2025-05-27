@@ -24,19 +24,41 @@ function getTetrominoId(type) {
 let bag = [];
 
 // 重新洗牌
-function refillBag() {
-  bag = [...TYPES].sort(() => Math.random() - 0.5);
-}
+// function refillBag() {
+//   bag = [...TYPES].sort(() => Math.random() - 0.5);
+// }
 
-function getNextShapeKey() {
-  if (bag.length === 0) {
-    refillBag();
-    console.log('Refilled bag:', bag);
+// function getNextShapeKey() {
+//   if (bag.length === 0) {
+//     refillBag();
+//     console.log('Refilled bag:', bag);
+//   }
+//   const next = bag.pop();
+//   console.log('Next piece:', next);
+//   return next;
+// }
+
+const getNextShapeKey = () => {
+  const keys = Object.keys(SHAPES);
+
+  // 統計最近的出現次數
+  const countMap = {};
+  for (let key of bag) {
+    countMap[key] = (countMap[key] || 0) + 1;
   }
-  const next = bag.pop();
-  console.log('Next piece:', next);
-  return next;
-}
+
+  // 過濾掉已出現 2 次的形狀
+  const filtered = keys.filter(k => (countMap[k] || 0) < 2);
+
+  const pool = filtered.length > 0 ? filtered : keys;
+  const chosenKey = pool[Math.floor(Math.random() * pool.length)];
+
+  // 更新最近方塊紀錄
+  bag.push(chosenKey);
+  if (bag.length > 9) bag.shift();
+
+  return chosenKey;
+};
 
 
 function randomTetromino() {
