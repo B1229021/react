@@ -7,10 +7,20 @@ class AssemblerApp:
     def __init__(self):
         self.program = []
         self.filename = None
-        self.registers = {f'R{i}': 0 for i in range(8)}
+        self.registers = {
+            'A': 0, 'X': 0, 'L': 0,
+            'B': 0, 'S': 0, 'T': 0,
+            'F': 0, 'SW': 0,
+            # 加入通用暫存器 R0 ~ R9
+            'R0': 0, 'R1': 0, 'R2': 0,
+            'R3': 0, 'R4': 0, 'R5': 0,
+            'R6': 0, 'R7': 0, 'R8': 0, 'R9': 0
+        }
+
+
         self.memory = {}
         self.pc = 0  # program counter
-        self.zero_flag = False
+        self.registers['SW'] = 0  # 用來儲存比較結果，0=equal, 1=greater, -1=less
         self.labels = {}  # 在 __init__ 裡新增
 
     def preprocess_labels(self):
@@ -53,10 +63,18 @@ class AssemblerApp:
 
     def clear(self):
         self.program = []
-        self.registers = {f'R{i}': 0 for i in range(8)}
+        self.registers = {
+            'A': 0, 'X': 0, 'L': 0,
+            'B': 0, 'S': 0, 'T': 0,
+            'F': 0, 'SW': 0,
+            'R0': 0, 'R1': 0, 'R2': 0,
+            'R3': 0, 'R4': 0, 'R5': 0,
+            'R6': 0, 'R7': 0, 'R8': 0, 'R9': 0
+        }
         self.memory = {}
         self.pc = 0
         print("[Cleared] Program and memory.")
+
 
     def list_program(self):
         if not self.program:
@@ -91,22 +109,34 @@ class AssemblerApp:
     def run(self):
         print("[Running program]\n")
         self.pc = 0
-        self.zero_flag = False
         self.preprocess_labels()
+        steps = 0
+        MAX_STEPS = 1000  # 防止無限循環
+
         while self.pc < len(self.program):
+            if steps > MAX_STEPS:
+                print("[Error] Too many steps. Possible infinite loop.")
+                break
+
+            prev_pc = self.pc  # ✅ 定義這行
             line = self.program[self.pc].strip()
             result = self.execute_line(line)
+            steps += 1
+
             if result == "HALT":
                 print("\n[HALT] Execution stopped.")
                 break
-            elif result == "SKIP":  # label line
+            elif result == "SKIP":
                 self.pc += 1
                 continue
             elif result == "JUMPED":
-                continue  # pc 已更新
+                if self.pc == prev_pc:
+                    print("[Warning] Jumped to same line. Stopping to avoid infinite loop.")
+                    break
+                continue
+
             self.pc += 1
 
-        self.dump_state()
 
     def execute_line(self, line):
         if not line or line.startswith(";"):
@@ -150,35 +180,90 @@ class AssemblerApp:
             elif op == "CMP":
                 reg1 = tokens[1].replace(',', '')
                 reg2 = tokens[2]
-                self.zero_flag = (self.registers[reg1] == self.registers[reg2])
-                print(f"CMP → {reg1} == {reg2} → {self.zero_flag}")
+                v1 = self.registers[reg1]
+                v2 = self.registers[reg2]
+                if v1 == v2:
+                    self.registers['SW'] = 0
+                elif v1 > v2:
+                    self.registers['SW'] = 1
+                else:
+                    self.registers['SW'] = -1
+                print(f"CMP → {reg1}({v1}) vs {reg2}({v2}) → SW={self.registers['SW']}")
+
 
             elif op == "JMP":
-                label = tokens[1]
-                if label in self.labels:
-                    self.pc = self.labels[label]
-                    print(f"JMP → 跳至 {label} (行 {self.pc + 1})")
+                target = tokens[1]
+                if target in self.labels:
+                    self.pc = self.labels[target]
+                    print(f"JMP → 跳至標籤 {target} (行 {self.pc + 1})")
                     return "JUMPED"
                 else:
-                    print(f"[Error] Label not found: {label}")
+                    try:
+                        line_num = int(target)
+                        if 0 <= line_num < len(self.program):
+                            self.pc = line_num
+                            print(f"JMP → 跳至行號 {line_num + 1}")
+                            return "JUMPED"
+                        else:
+                            print(f"[Error] 無效行號: {line_num}")
+                    except ValueError:
+                        print(f"[Error] Label not found or invalid number: {target}")
+
 
             elif op == "JZ":
+                target = tokens[1]
+                if self.registers['SW'] == 0:
+                    if target in self.labels:
+                        self.pc = self.labels[target]
+                        print(f"JZ → SW=0 → 跳至標籤 {target} (行 {self.pc + 1})")
+                        return "JUMPED"
+                    else:
+                        try:
+                            line_num = int(target)
+                            if 0 <= line_num < len(self.program):
+                                self.pc = line_num
+                                print(f"JZ → SW=0 → 跳至行號 {line_num + 1}")
+                                return "JUMPED"
+                            else:
+                                print(f"[Error] 無效行號: {line_num}")
+                        except ValueError:
+                            print(f"[Error] Label not found or invalid number: {target}")
+                else:
+                    print(f"JZ → SW={self.registers['SW']} → 不跳")
+
+
+            elif op == "JP":
                 label = tokens[1]
-                if self.zero_flag:
+                if self.registers['SW'] > 0:
                     if label in self.labels:
                         self.pc = self.labels[label]
-                        print(f"JZ → 跳至 {label} (行 {self.pc + 1})")
+                        print(f"JP → SW>0 → 跳至 {label} (行 {self.pc + 1})")
                         return "JUMPED"
                     else:
                         print(f"[Error] Label not found: {label}")
                 else:
-                    print(f"JZ → zero_flag=False → 不跳")
+                    print(f"JP → SW={self.registers['SW']} → 不跳")
+
+            elif op == "JN":
+                label = tokens[1]
+                if self.registers['SW'] < 0:
+                    if label in self.labels:
+                        self.pc = self.labels[label]
+                        print(f"JN → SW<0 → 跳至 {label} (行 {self.pc + 1})")
+                        return "JUMPED"
+                    else:
+                        print(f"[Error] Label not found: {label}")
+                else:
+                    print(f"JN → SW={self.registers['SW']} → 不跳")
+
 
             elif op == "HALT":
                 return "HALT"
 
             else:
                 print(f"[Error] Unknown instruction: {op}")
+                
+            self.print_registers()
 
         except Exception as e:
             print(f"[Runtime Error] {line} => {e}")
@@ -216,6 +301,12 @@ class AssemblerApp:
                 break
             else:
                 print("[Error] Unknown command.")
+
+    def print_registers(self):
+        print("\n[Registers]")
+        for r, v in self.registers.items():
+            print(f"{r}: {v}", end='  ')
+        print("\n")
 
 
 # 啟動程式
